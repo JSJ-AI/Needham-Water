@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Needham DPW — Water System SCADA</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050c14;--panel:#081220;--card:#0a1a2e;--border:#0f2540;--border2:#1a3a5c;
+  --amber:#ffb300;--amber-dim:#7a5500;--teal:#00e5cc;--teal-dim:#005548;
+  --green:#39ff14;--red:#ff3a3a;--red-dim:#5a0f0f;--blue:#2196f3;
+  --white:#c8dff0;--muted:#3a6080;
+  --mono:'Share Tech Mono',monospace;--body:'Barlow',sans-serif;--cond:'Barlow Condensed',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--white);font-family:var(--body);}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px);}
+.root{display:grid;grid-template-rows:52px 1fr;height:100vh;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:0 18px;
+  border-bottom:1px solid var(--border2);background:linear-gradient(90deg,#061020,#091828,#061020);}
+.hd-left{display:flex;align-items:center;gap:14px;}
+.seal{width:34px;height:34px;border:2px solid var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--teal);flex-shrink:0;}
+.hd-title{font-family:var(--cond);font-size:17px;font-weight:700;letter-spacing:.07em;}
+.hd-sub{font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:.1em;margin-top:1px;}
+.hd-center{display:flex;gap:20px;align-items:center;}
+.sysbadge{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.dg{background:var(--green);box-shadow:0 0 5px var(--green);animation:blink 2s infinite;}
+.da{background:var(--amber);box-shadow:0 0 5px var(--amber);}
+.dr2{background:var(--red);box-shadow:0 0 5px var(--red);animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.clock-t{font-family:var(--mono);font-size:19px;color:var(--amber);letter-spacing:.06em;text-align:right;}
+.clock-d{font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:.09em;text-align:right;}
+
+/* MAIN 3-COL */
+.main{display:grid;grid-template-columns:258px 1fr 268px;overflow:hidden;}
+
+/* shared panel bits */
+.psec{border-bottom:1px solid var(--border);padding:11px 13px;}
+.plabel{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.13em;text-transform:uppercase;margin-bottom:9px;display:flex;align-items:center;gap:5px;}
+.plabel::before{content:'';width:3px;height:9px;background:var(--teal);border-radius:1px;}
+
+/* LEFT */
+.left{border-right:1px solid var(--border2);overflow-y:auto;background:var(--panel);}
+::-webkit-scrollbar{width:3px;height:3px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* TANKS */
+.tankwrap{display:flex;gap:8px;justify-content:space-around;}
+.tankunit{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.tankname{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;letter-spacing:.05em;}
+.tankpct{font-family:var(--mono);font-size:13px;font-weight:700;text-align:center;}
+.tankgal{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;}
+.combbar-row{font-family:var(--mono);font-size:9px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:3px;}
+.bartrack{height:8px;background:var(--border);border-radius:4px;overflow:hidden;}
+.barfill{height:100%;border-radius:4px;transition:width .7s;background:linear-gradient(90deg,var(--teal),var(--amber));}
+.barsub{display:flex;justify-content:space-between;font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:2px;}
+
+/* PUMP ROWS */
+.pumprow{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(15,37,64,.5);}
+.pumprow:last-child{border-bottom:none;}
+.pumpinfo .pn{font-family:var(--mono);font-size:10px;color:var(--white);letter-spacing:.05em;}
+.pumpinfo .ps{font-family:var(--mono);font-size:8px;color:var(--muted);}
+.pumpctrl{display:flex;align-items:center;gap:7px;}
+.prpm{font-family:var(--mono);font-size:9px;color:var(--amber);width:34px;text-align:right;}
+.tog{width:34px;height:17px;border-radius:9px;border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;}
+.tog.on{background:var(--teal);}
+.tog.off{background:var(--red-dim);}
+.tog::after{content:'';position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:left .2s;}
+.tog.on::after{left:19px;}
+.slrow{padding:3px 0 7px;}
+.sllabel{font-family:var(--mono);font-size:8px;color:var(--muted);margin-bottom:3px;display:flex;justify-content:space-between;}
+input[type=range]{width:100%;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--border2);outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--amber);cursor:pointer;box-shadow:0 0 5px var(--amber);}
+input[type=range].t::-webkit-slider-thumb{background:var(--teal);box-shadow:0 0 5px var(--teal);}
+
+/* VALVES */
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.vbtn{background:var(--card);border:1px solid var(--border2);border-radius:4px;padding:6px 7px;cursor:pointer;transition:all .18s;text-align:left;}
+.vbtn.open{border-color:var(--teal);background:rgba(0,229,204,.05);}
+.vbtn.closed{border-color:var(--red);background:rgba(255,58,58,.05);}
+.vid{font-family:var(--mono);font-size:8px;color:var(--muted);}
+.vst{font-family:var(--mono);font-size:10px;margin-top:2px;}
+.vbtn.open .vst{color:var(--teal);}
+.vbtn.closed .vst{color:var(--red);}
+
+/* CENTER */
+.center{display:flex;flex-direction:column;overflow:hidden;}
+.mstrip{display:flex;border-bottom:1px solid var(--border2);}
+.mcell{flex:1;padding:7px 10px;border-right:1px solid var(--border);text-align:center;}
+.mcell:last-child{border-right:none;}
+.mv{font-family:var(--mono);font-size:15px;font-weight:700;}
+.ml{font-family:var(--mono);font-size:6px;color:var(--muted);letter-spacing:.07em;margin-top:1px;}
+.maparea{flex:0 0 auto;height:300px;position:relative;background:#060f1c;border-bottom:1px solid var(--border2);overflow:hidden;}
+.maphead{position:absolute;top:10px;left:14px;z-index:10;display:flex;align-items:center;gap:10px;}
+.maptitle{font-family:var(--cond);font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;}
+.tabwrap{display:flex;gap:3px;}
+.tbtn{font-family:var(--mono);font-size:7px;padding:2px 7px;border-radius:2px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:.07em;transition:all .18s;}
+.tbtn.active{background:var(--teal);color:var(--bg);border-color:var(--teal);}
+.charts{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;}
+.cpanel{border-top:1px solid var(--border);border-right:1px solid var(--border);padding:8px 12px;display:flex;flex-direction:column;overflow:hidden;}
+.cpanel:last-child{border-right:none;}
+.ctitle{font-family:var(--mono);font-size:10px;color:#6a9abb;letter-spacing:.07em;margin-bottom:6px;text-transform:uppercase;}
+canvas.cc{flex:1;min-height:0;}
+
+/* RIGHT */
+.right{border-left:1px solid var(--border2);overflow-y:auto;background:var(--panel);display:flex;flex-direction:column;}
+
+/* AI PANEL */
+.aipanel{padding:12px 13px;border-bottom:1px solid var(--border);}
+.aihead{display:flex;align-items:center;gap:7px;margin-bottom:9px;}
+.aiicon{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#003830,#00aa88);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.aititle{font-family:var(--cond);font-size:13px;font-weight:700;color:var(--teal);letter-spacing:.06em;}
+.aisub{font-family:var(--mono);font-size:8px;color:var(--muted);}
+.aistatbar{background:var(--card);border:1px solid var(--teal-dim);border-radius:5px;padding:8px;margin-bottom:8px;}
+.aisr{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:9px;margin-bottom:3px;}
+.aisr:last-child{margin-bottom:0;}
+.aiv{color:var(--teal);}
+.aiv.w{color:var(--amber);}
+.aische{background:var(--bg);border:1px solid var(--border2);border-radius:3px;padding:7px;margin-bottom:8px;}
+.aischt{font-family:var(--mono);font-size:8px;color:var(--muted);margin-bottom:5px;letter-spacing:.09em;}
+.schedrow{display:flex;gap:5px;align-items:center;margin-bottom:3px;}
+.schedt{font-family:var(--mono);font-size:8px;color:var(--amber);width:38px;}
+.schedtrack{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.schedfill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--teal-dim),var(--teal));transition:width .4s;}
+.scheda{font-family:var(--mono);font-size:7px;color:var(--muted);width:56px;text-align:right;}
+.aibtn{width:100%;padding:9px;border-radius:5px;border:none;cursor:pointer;font-family:var(--cond);font-size:13px;font-weight:700;letter-spacing:.09em;transition:all .28s;position:relative;overflow:hidden;}
+.aibtn.en{background:linear-gradient(135deg,#004838,#008866);color:var(--teal);border:1px solid var(--teal);box-shadow:0 0 18px rgba(0,229,204,.18);}
+.aibtn.en::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,229,204,.09),transparent);animation:shimmer 2.2s infinite;}
+@keyframes shimmer{from{transform:translateX(-100%);}to{transform:translateX(100%);}}
+.aibtn.dis{background:var(--card);color:var(--muted);border:1px solid var(--border2);}
+.aireasoning{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:7px;line-height:1.65;}
+
+/* SCENARIOS */
+.scenpanel{padding:10px 13px;border-bottom:1px solid var(--border);}
+.scengrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:7px;}
+.scenbtn{background:var(--card);border:1px solid var(--border2);border-radius:4px;padding:7px;cursor:pointer;transition:all .18s;text-align:left;}
+.scenbtn:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.4);}
+.scenbtn.warn-s{border-color:var(--amber-dim);}
+.scenbtn.warn-s:hover,.scenbtn.warn-s.act{border-color:var(--amber);background:rgba(255,179,0,.05);}
+.scenbtn.crit-s{border-color:var(--red-dim);}
+.scenbtn.crit-s:hover,.scenbtn.crit-s.act{border-color:var(--red);background:rgba(255,58,58,.05);}
+.scenbtn.good-s{border-color:var(--teal-dim);}
+.scenbtn.good-s:hover,.scenbtn.good-s.act{border-color:var(--teal);background:rgba(0,229,204,.04);}
+.scenbtn.act{box-shadow:0 0 0 1.5px var(--amber);}
+.sicon{font-size:14px;margin-bottom:3px;}
+.sname{font-family:var(--mono);font-size:9px;color:var(--white);letter-spacing:.04em;}
+.ssub{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:1px;}
+
+/* GAUGES */
+.gaugesec{padding:9px 13px;border-bottom:1px solid var(--border);}
+.gaugewrap{display:flex;gap:4px;justify-content:space-around;flex-wrap:wrap;}
+.gunit{display:flex;flex-direction:column;align-items:center;gap:1px;}
+.gval{font-family:var(--mono);font-size:20px;font-weight:700;text-align:center;line-height:1;}
+.gun{font-family:var(--mono);font-size:8px;color:var(--muted);text-align:center;}
+.glabel{font-family:var(--mono);font-size:8px;color:var(--muted);text-align:center;letter-spacing:.07em;}
+
+/* ALERTS */
+.alertpanel{padding:10px 13px;flex:1;}
+.alertlist{display:flex;flex-direction:column;gap:4px;margin-top:7px;max-height:180px;overflow-y:auto;}
+.aitem{display:flex;gap:7px;align-items:flex-start;padding:5px 7px;border-radius:3px;background:var(--card);border-left:3px solid;}
+.aitem.info{border-color:var(--teal);}
+.aitem.warn{border-color:var(--amber);}
+.aitem.crit{border-color:var(--red);}
+.atime{font-family:var(--mono);font-size:8px;color:var(--muted);flex-shrink:0;width:36px;}
+.amsg{font-family:var(--mono);font-size:8px;line-height:1.5;color:var(--white);}
+
+/* LIVE / SIM TOGGLE */
+.mode-toggle{display:flex;align-items:center;gap:0;border:1px solid var(--border2);border-radius:5px;overflow:hidden;flex-shrink:0;}
+.mode-btn{font-family:var(--mono);font-size:9px;padding:5px 12px;border:none;cursor:pointer;letter-spacing:.08em;transition:all .22s;background:var(--card);color:var(--muted);}
+.mode-btn.live-btn.active{background:linear-gradient(135deg,#00331a,#005528);color:var(--green);box-shadow:inset 0 0 12px rgba(57,255,20,.15);}
+.mode-btn.sim-btn.active{background:linear-gradient(135deg,#1a1000,#332200);color:var(--amber);box-shadow:inset 0 0 12px rgba(255,179,0,.15);}
+.live-pill{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8px;padding:3px 9px;border-radius:12px;border:1px solid;transition:all .3s;}
+.live-pill.live{background:rgba(57,255,20,.1);border-color:rgba(57,255,20,.4);color:var(--green);}
+.live-pill.sim{background:rgba(255,179,0,.1);border-color:rgba(255,179,0,.4);color:var(--amber);}
+.live-pill .dot{width:6px;height:6px;border-radius:50%;}
+.live-pill.live .dot{background:var(--green);box-shadow:0 0 5px var(--green);animation:blink 1.5s infinite;}
+.live-pill.sim .dot{background:var(--amber);box-shadow:0 0 4px var(--amber);}
+
+/* USGS DATA PANEL */
+.usgs-panel{padding:11px 13px;border-bottom:1px solid var(--border);}
+.usgs-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.usgs-source{font-family:var(--mono);font-size:7px;color:var(--muted);letter-spacing:.08em;}
+.usgs-source a{color:var(--blue);text-decoration:none;}
+.usgs-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;}
+.usgs-cell{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:7px 8px;}
+.usgs-cell.live-cell{border-color:rgba(57,255,20,.2);}
+.uc-label{font-family:var(--mono);font-size:6px;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin-bottom:3px;}
+.uc-val{font-family:var(--mono);font-size:14px;font-weight:700;}
+.uc-sub{font-family:var(--mono);font-size:6px;color:var(--muted);margin-top:1px;}
+.usgs-bar-wrap{margin-bottom:6px;}
+.usgs-bar-label{font-family:var(--mono);font-size:7px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:3px;}
+.usgs-impact{background:var(--bg);border:1px solid var(--border2);border-radius:3px;padding:6px 8px;}
+.usgs-impact-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:7px;margin-bottom:2px;}
+.usgs-impact-row:last-child{margin-bottom:0;}
+.usgs-updated{font-family:var(--mono);font-size:6px;color:var(--muted);text-align:right;margin-top:5px;letter-spacing:.06em;}
+.usgs-err{font-family:var(--mono);font-size:7px;color:var(--amber);padding:6px;background:rgba(255,179,0,.06);border-radius:3px;border:1px solid rgba(255,179,0,.2);text-align:center;}
+</style>
+</head>
+<body>
+<div class="root">
+
+<!-- HEADER -->
+<header>
+  <div class="hd-left">
+    <div class="seal">NDW</div>
+    <div>
+      <div class="hd-title">NEEDHAM WATER DIVISION — SCADA CONTROL</div>
+      <div class="hd-sub">DEPT. OF PUBLIC WORKS · WATER SEWER &amp; DRAIN · NEEDHAM, MA 02492 · 146 MI MAINS · 10,283 CONNECTIONS</div>
+    </div>
+  </div>
+  <div class="hd-center">
+    <div class="sysbadge"><div class="dot dg"></div><span style="color:var(--green)" id="wf-hd">WELLS ONLINE</span></div>
+    <div class="sysbadge"><div class="dot da" id="mwra-dot"></div><span style="color:var(--amber)" id="mwra-hd">MWRA STANDBY</span></div>
+    <div class="sysbadge"><div class="dot dg" id="ai-dot"></div><span style="color:var(--teal)" id="ai-hd">AI AUTOFILL ON</span></div>
+    <div class="sysbadge"><div class="dot dg" id="alert-dot"></div><span id="alert-hd" style="color:var(--green)">0 ALERTS</span></div>
+    <div style="width:1px;height:24px;background:var(--border2);margin:0 4px;"></div>
+    <div class="mode-toggle">
+      <button class="mode-btn live-btn active" id="btn-live" onclick="setMode('live')">⬤ LIVE DATA</button>
+      <button class="mode-btn sim-btn" id="btn-sim" onclick="setMode('sim')">⬡ SIMULATED</button>
+    </div>
+    <div class="live-pill live" id="mode-pill"><div class="dot"></div><span id="mode-pill-txt">USGS · LIVE</span></div>
+  </div>
+  <div>
+    <div class="clock-t" id="hd-time">00:00:00</div>
+    <div class="clock-d" id="hd-date"></div>
+  </div>
+</header>
+
+<div class="main">
+
+<!-- ═══ LEFT ═══ -->
+<div class="left">
+
+  <!-- TANKS -->
+  <div class="psec">
+    <div class="plabel">Storage Tanks — 4.0 MG Combined</div>
+    <div class="tankwrap">
+      <!-- Birds Hill -->
+      <div class="tankunit">
+        <div class="tankname">BIRDS HILL<br>100ft ⌀ · 45ft H</div>
+        <svg width="66" height="108" viewBox="0 0 66 108">
+          <defs>
+            <clipPath id="bh-cp"><rect x="6" y="8" width="54" height="80" rx="3"/></clipPath>
+            <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00e5cc" stop-opacity=".85"/><stop offset="100%" stop-color="#005548" stop-opacity=".9"/></linearGradient>
+            <linearGradient id="ww" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffb300" stop-opacity=".85"/><stop offset="100%" stop-color="#7a5500" stop-opacity=".9"/></linearGradient>
+            <linearGradient id="wc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff3a3a" stop-opacity=".85"/><stop offset="100%" stop-color="#5a0f0f" stop-opacity=".9"/></linearGradient>
+          </defs>
+          <rect x="6" y="8" width="54" height="80" rx="3" fill="#07111e" stroke="#1a3a5c" stroke-width="1.5"/>
+          <rect id="bh-fill" x="6" y="8" width="54" height="80" rx="3" clip-path="url(#bh-cp)" fill="url(#wg)"/>
+          <g clip-path="url(#bh-cp)">
+            <path fill="rgba(0,229,204,.18)">
+              <animate attributeName="d" dur="3s" repeatCount="indefinite"
+                values="M6,52 Q20,46 33,52 Q46,58 60,52 L60,88 L6,88 Z;M6,52 Q20,58 33,52 Q46,46 60,52 L60,88 L6,88 Z;M6,52 Q20,46 33,52 Q46,58 60,52 L60,88 L6,88 Z"/>
+            </path>
+          </g>
+          <rect x="6" y="8" width="54" height="80" rx="3" fill="none" stroke="#1a3a5c" stroke-width="1.5"/>
+          <line x1="58" y1="28" x2="62" y2="28" stroke="#1a3a5c" stroke-width="1"/>
+          <line x1="58" y1="48" x2="62" y2="48" stroke="#1a3a5c" stroke-width="1"/>
+          <line x1="58" y1="68" x2="62" y2="68" stroke="#1a3a5c" stroke-width="1"/>
+          <rect x="24" y="88" width="18" height="15" fill="#07111e" stroke="#1a3a5c" stroke-width="1"/>
+          <text x="33" y="6" text-anchor="middle" font-size="5" fill="#1a3a5c" font-family="Share Tech Mono,monospace">FISHER 1972</text>
+        </svg>
+        <div class="tankpct" id="bh-pct" style="color:var(--teal)">78%</div>
+        <div class="tankgal" id="bh-gal">1.95 MG</div>
+      </div>
+      <!-- Dunster Rd -->
+      <div class="tankunit">
+        <div class="tankname">DUNSTER RD<br>55ft ⌀ · 85ft H</div>
+        <svg width="66" height="108" viewBox="0 0 66 108">
+          <defs><clipPath id="dr-cp"><rect x="18" y="8" width="30" height="80" rx="2"/></clipPath></defs>
+          <rect x="18" y="8" width="30" height="80" rx="2" fill="#07111e" stroke="#1a3a5c" stroke-width="1.5"/>
+          <rect id="dr-fill" x="18" y="8" width="30" height="80" rx="2" clip-path="url(#dr-cp)" fill="url(#wg)"/>
+          <g clip-path="url(#dr-cp)">
+            <path fill="rgba(0,229,204,.15)">
+              <animate attributeName="d" dur="2.5s" repeatCount="indefinite"
+                values="M18,52 Q26,47 33,52 Q40,57 48,52 L48,88 L18,88 Z;M18,52 Q26,57 33,52 Q40,47 48,52 L48,88 L18,88 Z;M18,52 Q26,47 33,52 Q40,57 48,52 L48,88 L18,88 Z"/>
+            </path>
+          </g>
+          <rect x="18" y="8" width="30" height="80" rx="2" fill="none" stroke="#1a3a5c" stroke-width="1.5"/>
+          <line x1="20" y1="88" x2="15" y2="103" stroke="#1a3a5c" stroke-width="1.5"/>
+          <line x1="33" y1="88" x2="33" y2="103" stroke="#1a3a5c" stroke-width="1.5"/>
+          <line x1="46" y1="88" x2="51" y2="103" stroke="#1a3a5c" stroke-width="1.5"/>
+          <line x1="14" y1="98" x2="52" y2="98" stroke="#1a3a5c" stroke-width="1"/>
+          <text x="33" y="6" text-anchor="middle" font-size="5" fill="#1a3a5c" font-family="Share Tech Mono,monospace">CB&amp;I 1950</text>
+        </svg>
+        <div class="tankpct" id="dr-pct" style="color:var(--teal)">64%</div>
+        <div class="tankgal" id="dr-gal">0.96 MG</div>
+      </div>
+    </div>
+    <div style="margin-top:9px;">
+      <div class="combbar-row"><span>COMBINED STORAGE</span><span id="comb-pct" style="color:var(--amber)">72% · 2.91 MG</span></div>
+      <div class="bartrack"><div class="barfill" id="comb-bar" style="width:72%"></div></div>
+      <div class="barsub"><span>MIN 20%</span><span>TARGET 85%</span><span>MAX 4.0 MG</span></div>
+    </div>
+  </div>
+
+  <!-- WELLS -->
+  <div class="psec">
+    <div class="plabel">Charles River Wellfield — 3 Active Wells</div>
+    <div id="pump-list"></div>
+  </div>
+
+  <!-- MWRA -->
+  <div class="psec">
+    <div class="plabel">MWRA 36&quot; Backup + St. Mary's Booster</div>
+    <div class="pumprow">
+      <div class="pumpinfo"><div class="pn">MWRA 36&quot; MAIN</div><div class="ps">METROWEST TUNNEL → ST. MARY ST · CENTRAL AVE</div></div>
+      <div class="pumpctrl">
+        <div class="prpm" id="mwra-rpm" style="color:var(--muted)">—</div>
+        <button class="tog off" id="mwra-tog" onclick="toggleMWRA()"></button>
+      </div>
+    </div>
+    <div id="mwra-sw" class="slrow" style="opacity:.3;pointer-events:none;">
+      <div class="sllabel"><span>MWRA FLOW RATE</span><span id="mwra-fv" style="color:var(--teal)">0.00 MGD</span></div>
+      <input type="range" class="t" id="mwra-sl" min="0" max="100" value="0" oninput="updateMWRA(this.value)">
+    </div>
+    <div class="pumprow" style="border-top:1px solid var(--border);padding-top:6px;margin-top:2px;">
+      <div class="pumpinfo"><div class="pn">ST. MARY'S BOOSTER</div><div class="ps">CENTRAL AVE · AUTO-COUPLES WITH MWRA</div></div>
+      <div class="pumpctrl">
+        <div class="prpm" id="boost-rpm" style="color:var(--muted)">—</div>
+        <button class="tog off" id="boost-tog" onclick="toggleBoost()"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VALVES -->
+  <div class="psec">
+    <div class="plabel">Zone Isolation Valves (3,400 system-wide)</div>
+    <div class="vgrid" id="valve-grid"></div>
+  </div>
+
+</div>
+<!-- END LEFT -->
+
+<!-- ═══ CENTER ═══ -->
+<div class="center">
+
+  <!-- Metrics strip -->
+  <div class="mstrip">
+    <div class="mcell"><div class="mv" id="m-demand" style="color:var(--teal)">3.24</div><div class="ml">DEMAND MGD</div></div>
+    <div class="mcell"><div class="mv" id="m-out" style="color:var(--amber)">3.80</div><div class="ml">WELL OUTPUT MGD</div></div>
+    <div class="mcell"><div class="mv" id="m-psi" style="color:var(--green)">68</div><div class="ml">AVG PRESSURE PSI</div></div>
+    <div class="mcell"><div class="mv" style="color:var(--blue)">1,245</div><div class="ml">HYDRANTS ACTIVE</div></div>
+    <div class="mcell"><div class="mv" style="color:var(--teal)">30K+</div><div class="ml">RESIDENTS SERVED</div></div>
+  </div>
+
+  <!-- MAP -->
+  <div class="maparea">
+    <div class="maphead">
+      <div class="maptitle">Needham Distribution Network</div>
+      <div class="tabwrap">
+        <button class="tbtn active" onclick="setMode(this,'pressure')">PRESSURE</button>
+        <button class="tbtn" onclick="setMode(this,'flow')">FLOW</button>
+        <button class="tbtn" onclick="setMode(this,'age')">WATER AGE</button>
+      </div>
+    </div>
+    <svg id="nmap" viewBox="0 0 640 268" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="rg-green" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#39ff14" stop-opacity=".35"/><stop offset="100%" stop-color="#39ff14" stop-opacity="0"/></radialGradient>
+        <radialGradient id="rg-amber" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffb300" stop-opacity=".4"/><stop offset="100%" stop-color="#ffb300" stop-opacity="0"/></radialGradient>
+        <radialGradient id="rg-red" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ff3a3a" stop-opacity=".42"/><stop offset="100%" stop-color="#ff3a3a" stop-opacity="0"/></radialGradient>
+        <radialGradient id="rg-teal" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#00e5cc" stop-opacity=".22"/><stop offset="100%" stop-color="#00e5cc" stop-opacity="0"/></radialGradient>
+        <filter id="gl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <marker id="arw" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto"><polygon points="0,0 5,2.5 0,5" fill="#00e5cc" opacity=".5"/></marker>
+      </defs>
+      <rect width="640" height="268" fill="#060f1c"/>
+      <!-- road grid -->
+      <g stroke="#0b1d30" stroke-width="9" stroke-linecap="round" opacity=".7">
+        <line x1="0" y1="100" x2="640" y2="100"/><line x1="0" y1="180" x2="640" y2="180"/>
+        <line x1="110" y1="0" x2="110" y2="268"/><line x1="270" y1="0" x2="270" y2="268"/>
+        <line x1="430" y1="0" x2="430" y2="268"/><line x1="580" y1="0" x2="580" y2="268"/>
+        <line x1="0" y1="48" x2="640" y2="48"/>
+      </g>
+      <!-- Street name labels — positioned in clear zones on the right half -->
+      <g font-family="Share Tech Mono,monospace" font-size="9" font-weight="700" fill="#6ab8d8">
+        <!-- Charles River St — label in the clear zone right of centre, above road -->
+        <rect x="310" y="34" width="136" height="13" rx="2" fill="rgba(4,10,20,.8)"/>
+        <text x="314" y="44">CHARLES RIVER ST.</text>
+        <!-- Needham St — label right-centre zone, below road -->
+        <rect x="310" y="102" width="108" height="13" rx="2" fill="rgba(4,10,20,.8)"/>
+        <text x="314" y="112">NEEDHAM ST.</text>
+        <!-- Highland Ave — label right zone, below road -->
+        <rect x="310" y="182" width="116" height="13" rx="2" fill="rgba(4,10,20,.8)"/>
+        <text x="314" y="192">HIGHLAND AVE</text>
+      </g>
+      <!-- Pressure zone overlays -->
+      <g id="pzones" opacity=".5">
+        <rect x="30" y="30" width="220" height="108" rx="5" fill="url(#rg-green)" filter="url(#gl)"/>
+        <rect x="120" y="108" width="280" height="60" rx="5" fill="url(#rg-green)" filter="url(#gl)"/>
+        <rect x="340" y="30" width="255" height="108" rx="5" fill="url(#rg-amber)" filter="url(#gl)"/>
+        <rect x="30" y="186" width="566" height="58" rx="5" fill="url(#rg-teal)" filter="url(#gl)"/>
+      </g>
+      <!-- Transmission mains -->
+      <g fill="none" stroke-linecap="round">
+        <!-- pipe from wellfield (52,68) along y=68 to treatment at (110,80) -->
+        <path d="M52,68 L110,68 L110,100 L270,100 L430,100" stroke="#004d3a" stroke-width="5"/>
+        <path d="M110,100 L110,180 L270,180 L430,180 L580,180" stroke="#004d3a" stroke-width="4"/>
+        <path d="M270,100 L270,180" stroke="#004488" stroke-width="3.5"/>
+        <path d="M430,100 L430,180" stroke="#004488" stroke-width="3.5"/>
+        <path d="M110,180 L110,245 L270,245" stroke="#003366" stroke-width="3"/>
+        <path d="M580,46 L580,100 L430,100" stroke="#0a2855" stroke-width="4" stroke-dasharray="7,4" id="mwra-line"/>
+        <line x1="60" y1="100" x2="60" y2="180" stroke="#02304a" stroke-width="2"/>
+        <line x1="190" y1="100" x2="190" y2="180" stroke="#02304a" stroke-width="2"/>
+        <line x1="350" y1="100" x2="350" y2="180" stroke="#02304a" stroke-width="2"/>
+        <line x1="350" y1="180" x2="350" y2="245" stroke="#02304a" stroke-width="2"/>
+        <line x1="510" y1="100" x2="510" y2="180" stroke="#02304a" stroke-width="2"/>
+        <line x1="510" y1="180" x2="510" y2="245" stroke="#02304a" stroke-width="2"/>
+        <line x1="110" y1="245" x2="430" y2="245" stroke="#02304a" stroke-width="2"/>
+        <line x1="430" y1="245" x2="580" y2="245" stroke="#02304a" stroke-width="2"/>
+        <line x1="580" y1="180" x2="580" y2="245" stroke="#02304a" stroke-width="2"/>
+      </g>
+      <!-- Flow particles -->
+      <g id="fparts" opacity=".8"/>
+      <!-- Scenario overlay -->
+      <g id="scov"/>
+
+      <!-- WELLFIELD — between y=48 and y=100, label tag above pointing down -->
+      <g transform="translate(52,72)">
+        <circle cx="0" cy="0" r="24" fill="url(#rg-green)" filter="url(#gl)"/>
+        <circle cx="0" cy="0" r="18" fill="#061408" stroke="#39ff14" stroke-width="2"/>
+        <!-- Two-line value: number + unit -->
+        <text x="0" y="-4" text-anchor="middle" font-size="10" fill="#39ff14" font-family="Share Tech Mono,monospace" font-weight="700" id="wf-val">3.8</text>
+        <text x="0" y="8" text-anchor="middle" font-size="8" fill="#2a9050" font-family="Share Tech Mono,monospace">MGD</text>
+        <!-- WELLFIELD label tag above — anchored right so it stays in-bounds -->
+        <line x1="8" y1="-18" x2="22" y2="-30" stroke="#39ff14" stroke-width="1" opacity=".5"/>
+        <rect x="22" y="-40" width="62" height="14" rx="3" fill="rgba(4,14,6,.9)" stroke="#1e6030" stroke-width="1"/>
+        <text x="53" y="-29" text-anchor="middle" font-size="8" fill="#39ff14" font-family="Share Tech Mono,monospace" font-weight="700">WELLFIELD</text>
+      </g>
+
+      <!-- BIRDS HILL TANK on map — moved slightly up so label clears road -->
+      <g transform="translate(273,83)">
+        <circle cx="0" cy="0" r="20" fill="url(#rg-teal)" filter="url(#gl)"/>
+        <rect x="-13" y="-18" width="26" height="26" rx="3" fill="#061220" stroke="#00e5cc" stroke-width="1.8"/>
+        <rect x="-11" y="-16" width="22" height="20" rx="2" fill="#003830" id="bh-mf"/>
+        <text x="0" y="-22" text-anchor="middle" font-size="9" fill="#00e5cc" font-family="Share Tech Mono,monospace" font-weight="700">BIRDS HILL</text>
+        <text x="0" y="-3" text-anchor="middle" font-size="10" fill="#00e5cc" font-family="Share Tech Mono,monospace" font-weight="700" id="bh-mp">78%</text>
+        <line x1="0" y1="8" x2="0" y2="20" stroke="#00e5cc" stroke-width="1.5"/>
+      </g>
+
+      <!-- DUNSTER RD — moved right slightly, wider tank shape -->
+      <g transform="translate(455,155)">
+        <circle cx="0" cy="0" r="22" fill="url(#rg-teal)" filter="url(#gl)"/>
+        <!-- wider standpipe body for comfortable % display -->
+        <rect x="-12" y="-20" width="24" height="30" rx="2" fill="#061220" stroke="#00e5cc" stroke-width="1.8"/>
+        <rect x="-10" y="-18" width="20" height="26" rx="1" fill="#003830" id="dr-mf"/>
+        <line x1="-11" y1="10" x2="-14" y2="22" stroke="#00e5cc" stroke-width="1.5"/>
+        <line x1="11" y1="10" x2="14" y2="22" stroke="#00e5cc" stroke-width="1.5"/>
+        <text x="0" y="-26" text-anchor="middle" font-size="9" fill="#00e5cc" font-family="Share Tech Mono,monospace" font-weight="700">DUNSTER RD</text>
+        <text x="0" y="-3" text-anchor="middle" font-size="10" fill="#00e5cc" font-family="Share Tech Mono,monospace" font-weight="700" id="dr-mp">64%</text>
+      </g>
+
+      <!-- MWRA node -->
+      <g transform="translate(580,30)">
+        <circle cx="0" cy="0" r="15" fill="#07132a" stroke="#2196f3" stroke-width="1.5" stroke-dasharray="4,2"/>
+        <text x="0" y="-19" text-anchor="middle" font-size="9" fill="#4a9ad8" font-family="Share Tech Mono,monospace" font-weight="700">MWRA</text>
+        <text x="0" y="4" text-anchor="middle" font-size="8" fill="#4a9ad8" font-family="Share Tech Mono,monospace" font-weight="700" id="mwra-mv">STANDBY</text>
+      </g>
+
+      <!-- Treatment plant — shifted slightly so it clears road -->
+      <g transform="translate(165,74)">
+        <rect x="-22" y="-12" width="44" height="22" rx="3" fill="#07111e" stroke="#2a5a80" stroke-width="1.2"/>
+        <text x="0" y="-16" text-anchor="middle" font-size="8" fill="#4a80a0" font-family="Share Tech Mono,monospace" font-weight="600">CRWTF</text>
+        <text x="0" y="3" text-anchor="middle" font-size="8" fill="#4a80a0" font-family="Share Tech Mono,monospace" font-weight="600">TREAT.</text>
+      </g>
+
+      <!-- St Mary's booster — south zone, clear of Highland Ave -->
+      <g transform="translate(220,232)">
+        <rect x="-22" y="-12" width="44" height="22" rx="3" fill="#07111e" stroke="#d08800" stroke-width="1.5"/>
+        <text x="0" y="-16" text-anchor="middle" font-size="8" fill="#e0a020" font-family="Share Tech Mono,monospace" font-weight="600">ST. MARY'S</text>
+        <text x="0" y="3" text-anchor="middle" font-size="8" fill="#e0a020" font-family="Share Tech Mono,monospace" font-weight="600">BOOSTER</text>
+      </g>
+
+      <!-- Pressure sensors -->
+      <g id="snodes">
+        <circle cx="190" cy="100" r="4" fill="#00e5cc" opacity=".7"><animate attributeName="r" values="4;6;4" dur="2.1s" repeatCount="indefinite"/></circle>
+        <circle cx="350" cy="100" r="4" fill="#00e5cc" opacity=".7"><animate attributeName="r" values="4;6;4" dur="2.4s" repeatCount="indefinite"/></circle>
+        <circle cx="190" cy="180" r="4" fill="#00e5cc" opacity=".7"><animate attributeName="r" values="4;6;4" dur="1.9s" repeatCount="indefinite"/></circle>
+        <circle cx="350" cy="180" r="4" fill="#ffb300" opacity=".8"><animate attributeName="r" values="4;6;4" dur="1.6s" repeatCount="indefinite"/></circle>
+        <circle cx="510" cy="180" r="4" fill="#ffb300" opacity=".8"><animate attributeName="r" values="4;6;4" dur="2.8s" repeatCount="indefinite"/></circle>
+      </g>
+      <!-- PSI labels — shifted 8px ABOVE each road line so they don't sit on it -->
+      <g font-family="Share Tech Mono,monospace" font-size="11" font-weight="700">
+        <text x="196" y="88" id="p-n"  fill="#00e5cc">72 PSI</text>
+        <text x="250" y="88" id="tr-n"  fill="#00e5cc" font-size="13">→</text>
+        <text x="356" y="88" id="p-ne" fill="#00e5cc">68 PSI</text>
+        <text x="410" y="88" id="tr-ne" fill="#00e5cc" font-size="13">→</text>
+        <text x="196" y="170" id="p-s"  fill="#00e5cc">61 PSI</text>
+        <text x="250" y="170" id="tr-s"  fill="#00e5cc" font-size="13">→</text>
+        <text x="356" y="170" id="p-se" fill="#ffb300">58 PSI</text>
+        <text x="410" y="170" id="tr-se" fill="#ffb300" font-size="13">→</text>
+        <text x="510" y="170" id="p-e"  fill="#ffb300">45 PSI</text>
+        <text x="564" y="170" id="tr-e"  fill="#ffb300" font-size="13">→</text>
+      </g>
+
+      <!-- Legend -->
+      <g transform="translate(24,242)">
+        <rect x="-3" y="-9" width="340" height="24" fill="rgba(5,10,20,.88)" rx="4" stroke="#1a3a5c" stroke-width="1"/>
+        <circle cx="8" cy="4" r="5" fill="#39ff14" opacity=".9"/>
+        <text x="18" y="8" font-size="10" font-weight="600" fill="#6ad860" font-family="Share Tech Mono,monospace">Normal (60–80 PSI)</text>
+        <circle cx="142" cy="4" r="5" fill="#ffb300" opacity=".9"/>
+        <text x="152" y="8" font-size="10" font-weight="600" fill="#d4a020" font-family="Share Tech Mono,monospace">Caution (40–59)</text>
+        <circle cx="268" cy="4" r="5" fill="#ff3a3a" opacity=".9"/>
+        <text x="278" y="8" font-size="10" font-weight="600" fill="#e05050" font-family="Share Tech Mono,monospace">Critical (&lt;40)</text>
+      </g>
+    </svg>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts">
+    <div class="cpanel">
+      <div class="ctitle">24-Hour Demand Curve (MGD) · Today vs Forecast</div>
+      <canvas class="cc" id="dc"></canvas>
+    </div>
+    <div class="cpanel">
+      <div class="ctitle">System Pressure Trend — 6-Hour Rolling (PSI)</div>
+      <canvas class="cc" id="pc"></canvas>
+    </div>
+  </div>
+</div>
+<!-- END CENTER -->
+
+<!-- ═══ RIGHT ═══ -->
+<div class="right">
+
+  <!-- USGS LIVE DATA -->
+  <div class="usgs-panel" id="usgs-panel">
+    <div class="usgs-header">
+      <div class="plabel" style="margin-bottom:0;">Charles River — USGS Live Feed</div>
+      <div class="usgs-source">SITE 01104200 · WELLESLEY, MA<br><a href="https://waterdata.usgs.gov/monitoring-location/01104200/" target="_blank">waterdata.usgs.gov ↗</a></div>
+    </div>
+    <div id="usgs-content">
+      <div class="usgs-cell" style="grid-column:1/-1;margin-bottom:5px;">
+        <div class="uc-label">STATUS</div>
+        <div class="uc-val" style="font-size:11px;color:var(--muted)">Fetching USGS data…</div>
+      </div>
+    </div>
+    <div class="usgs-updated" id="usgs-updated">—</div>
+  </div>
+
+  <!-- AI -->
+  <div class="aipanel">
+    <div class="aihead">
+      <div class="aiicon">◈</div>
+      <div><div class="aititle">AI OVERNIGHT AUTO-FILL</div><div class="aisub">DEMAND PREDICTOR · SCHEDULE OPTIMIZER · NEEDHAM DPW</div></div>
+    </div>
+    <div class="aistatbar">
+      <div class="aisr"><span>Tomorrow Demand Forecast</span><span class="aiv">3.41 MGD</span></div>
+      <div class="aisr"><span>Recommended Pre-charge</span><span class="aiv w">92% by 5:30 AM</span></div>
+      <div class="aisr"><span>Off-Peak Window</span><span class="aiv">01:00 – 05:00 AM</span></div>
+      <div class="aisr"><span>Est. Energy Savings</span><span class="aiv">28% vs. daytime</span></div>
+      <div class="aisr"><span>Prediction Confidence</span><span class="aiv">94.2%</span></div>
+    </div>
+    <div class="aische">
+      <div class="aischt">TONIGHT'S PUMP SCHEDULE</div>
+      <div class="schedrow"><span class="schedt">10 PM</span><div class="schedtrack"><div class="schedfill" style="width:30%;background:linear-gradient(90deg,#003830,#006655);"></div></div><span class="scheda">WELL-1 55%</span></div>
+      <div class="schedrow"><span class="schedt">12 AM</span><div class="schedtrack"><div class="schedfill" style="width:52%;"></div></div><span class="scheda">WELLS 70%</span></div>
+      <div class="schedrow"><span class="schedt">01 AM</span><div class="schedtrack"><div class="schedfill" style="width:80%;"></div></div><span class="scheda">WELLS 100%</span></div>
+      <div class="schedrow"><span class="schedt">03 AM</span><div class="schedtrack"><div class="schedfill" style="width:95%;"></div></div><span class="scheda">MWRA SUPP.</span></div>
+      <div class="schedrow"><span class="schedt">05:30</span><div class="schedtrack"><div class="schedfill" style="width:100%;background:linear-gradient(90deg,var(--teal),#39ff14);"></div></div><span class="scheda">TARGET ✓</span></div>
+      <div class="schedrow"><span class="schedt">06 AM</span><div class="schedtrack"><div class="schedfill" style="width:38%;background:linear-gradient(90deg,#003830,#002218);"></div></div><span class="scheda">RAMP DOWN</span></div>
+    </div>
+    <button class="aibtn en" id="aibtn" onclick="toggleAI()">◈ &nbsp;AI AUTOFILL: ENABLED</button>
+    <div class="aireasoning" id="aireasoning">Pattern analysis: Tuesday AM peak (2.1× baseline) expected. Pre-charging both tanks prevents Zone 4 pressure falling below 40 PSI. MassDEP hard minimum: 20 PSI. MWRA supplement staged at 3 AM if wells insufficient.</div>
+  </div>
+
+  <!-- SCENARIOS -->
+  <div class="scenpanel">
+    <div class="plabel">What-If Scenario Simulator</div>
+    <div class="scengrid">
+      <button class="scenbtn warn-s" id="sb-peak" onclick="doScen('peak')"><div class="sicon">⚡</div><div class="sname">MORNING PEAK</div><div class="ssub">6–9 AM surge</div></button>
+      <button class="scenbtn crit-s" id="sb-leak" onclick="doScen('leak')"><div class="sicon">💧</div><div class="sname">PIPE LEAK</div><div class="ssub">18% flow loss</div></button>
+      <button class="scenbtn crit-s" id="sb-fire" onclick="doScen('fire')"><div class="sicon">🔥</div><div class="sname">FIRE EVENT</div><div class="ssub">1,500 GPM draw</div></button>
+      <button class="scenbtn warn-s" id="sb-heat" onclick="doScen('heat')"><div class="sicon">☀️</div><div class="sname">HEAT WAVE</div><div class="ssub">+60% demand</div></button>
+      <button class="scenbtn crit-s" id="sb-power" onclick="doScen('power')"><div class="sicon">⚠️</div><div class="sname">PUMP OUTAGE</div><div class="ssub">Well #2 failure</div></button>
+      <button class="scenbtn good-s" id="sb-normal" onclick="doScen('normal')"><div class="sicon">✓</div><div class="sname">RESET NORMAL</div><div class="ssub">Baseline ops</div></button>
+    </div>
+  </div>
+
+  <!-- GAUGES -->
+  <div class="gaugesec">
+    <div class="plabel">Live Zone Pressure Gauges</div>
+    <div class="gaugewrap">
+      <div class="gunit"><canvas id="gc-n" width="68" height="44"></canvas><div class="gval" id="gv-n" style="color:var(--green)">72</div><div class="gun">PSI</div><div class="glabel">NORTH</div></div>
+      <div class="gunit"><canvas id="gc-c" width="68" height="44"></canvas><div class="gval" id="gv-c" style="color:var(--green)">68</div><div class="gun">PSI</div><div class="glabel">CENTRAL</div></div>
+      <div class="gunit"><canvas id="gc-s" width="68" height="44"></canvas><div class="gval" id="gv-s" style="color:var(--teal)">61</div><div class="gun">PSI</div><div class="glabel">SOUTH</div></div>
+    </div>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="alertpanel">
+    <div class="plabel">System Event Log</div>
+    <div class="alertlist" id="alert-list">
+      <div class="aitem info"><span class="atime">05:42</span><span class="amsg">AI Auto-Fill schedule loaded for 22:00–06:00 cycle</span></div>
+      <div class="aitem info"><span class="atime">04:15</span><span class="amsg">Birds Hill refilled to 78% — overnight cycle complete</span></div>
+      <div class="aitem info"><span class="atime">02:30</span><span class="amsg">Well #2 adjusted to 95% — MWRA supplement not needed</span></div>
+      <div class="aitem info"><span class="atime">00:05</span><span class="amsg">All zones above 40 PSI — system nominal</span></div>
+    </div>
+  </div>
+
+</div>
+<!-- END RIGHT -->
+
+</div><!-- end main -->
+</div><!-- end root -->
+
+<script>
+// ── STATE ──
+const S = {
+  bh:78, dr:64,
+  aiOn:true, mwraOn:false, boostOn:false, mwraFlow:0,
+  scen:'normal',
+  pumps:[
+    {name:'WELL #1 (CRWTF)',spec:'800 GPM · 60HP · GRAVEL-PACK',on:true,pct:85,mgd:1.38},
+    {name:'WELL #2 (CRWTF)',spec:'800 GPM · 60HP · GRAVEL-PACK',on:true,pct:80,mgd:1.30},
+    {name:'WELL #3 (CRWTF)',spec:'570 GPM · 30HP · GRAVEL-PACK',on:true,pct:68,mgd:0.74},
+  ],
+  valves:[
+    {id:'V-22',desc:'NEEDHAM ST.',open:true},{id:'V-14',desc:'CENTRAL AVE',open:true},
+    {id:'V-09',desc:'HIGHLAND AVE',open:true},{id:'V-31',desc:'GREAT PLAIN',open:true},
+    {id:'V-07',desc:'DEDHAM AVE',open:true},{id:'V-19',desc:'S. ZONE ISO',open:false},
+  ],
+  psi:{n:72,c:68,s:61,se:58,e:45},
+  demand:3.24,
+  alerts:[]
+};
+
+// ── CLOCK ──
+function updateClock(){
+  const n=new Date();
+  document.getElementById('hd-time').textContent=n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('hd-date').textContent=n.toLocaleDateString('en-US',{weekday:'long',day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+}
+setInterval(updateClock,1000); updateClock();
+
+// ── PUMPS ──
+function renderPumps(){
+  document.getElementById('pump-list').innerHTML=S.pumps.map((p,i)=>`
+    <div class="pumprow">
+      <div class="pumpinfo"><div class="pn">${p.name}</div><div class="ps">${p.spec}</div></div>
+      <div class="pumpctrl">
+        <div class="prpm" style="color:${p.on?'var(--amber)':'var(--muted)'}">${p.on?Math.round(p.pct*14.5)+' RPM':'STOP'}</div>
+        <button class="tog ${p.on?'on':'off'}" onclick="togPump(${i})"></button>
+      </div>
+    </div>
+    ${p.on?`<div class="slrow"><div class="sllabel"><span>${p.on?'W'+(i+1)+' OUTPUT':''}</span><span style="color:var(--amber)">${p.pct}% · ${p.mgd.toFixed(2)} MGD</span></div>
+    <input type="range" min="20" max="100" value="${p.pct}" oninput="setPump(${i},this.value)"></div>`:''}
+  `).join('');
+}
+function togPump(i){
+  S.pumps[i].on=!S.pumps[i].on;
+  if(!S.pumps[i].on) S.pumps[i].mgd=0; else calcMGD(i);
+  renderPumps(); calcMetrics();
+  addAlert('info',`${S.pumps[i].name} ${S.pumps[i].on?'STARTED':'STOPPED'}`);
+}
+function setPump(i,v){S.pumps[i].pct=+v; calcMGD(i); renderPumps(); calcMetrics();}
+function calcMGD(i){const caps=[1.38,1.30,0.74]; S.pumps[i].mgd=S.pumps[i].on?+(caps[i]*(S.pumps[i].pct/100)).toFixed(2):0;}
+
+// ── VALVES ──
+function renderValves(){
+  document.getElementById('valve-grid').innerHTML=S.valves.map((v,i)=>`
+    <button class="vbtn ${v.open?'open':'closed'}" onclick="togValve(${i})">
+      <div class="vid">${v.id} · ${v.desc}</div>
+      <div class="vst">${v.open?'▶ OPEN':'■ CLOSED'}</div>
+    </button>`).join('');
+}
+function togValve(i){S.valves[i].open=!S.valves[i].open; renderValves(); addAlert('warn',`Valve ${S.valves[i].id} ${S.valves[i].open?'OPENED':'CLOSED'}`);}
+
+// ── MWRA ──
+function toggleMWRA(){
+  S.mwraOn=!S.mwraOn;
+  document.getElementById('mwra-tog').className='tog '+(S.mwraOn?'on':'off');
+  const sw=document.getElementById('mwra-sw'); sw.style.opacity=S.mwraOn?'1':'0.3'; sw.style.pointerEvents=S.mwraOn?'all':'none';
+  if(!S.mwraOn){S.mwraFlow=0; document.getElementById('mwra-sl').value=0; updateMWRA(0);}
+  document.getElementById('mwra-mv').textContent=S.mwraOn?'ACTIVE':'STANDBY';
+  document.getElementById('mwra-dot').className='dot '+(S.mwraOn?'dg':'da');
+  document.getElementById('mwra-hd').textContent=S.mwraOn?'MWRA ACTIVE':'MWRA STANDBY';
+  document.getElementById('mwra-hd').style.color=S.mwraOn?'var(--green)':'var(--amber)';
+  document.getElementById('mwra-line').style.stroke=S.mwraOn?'#2196f3':'#0a2855';
+  addAlert('info',`MWRA 36" main ${S.mwraOn?'ACTIVATED':'DEACTIVATED'}`);
+  calcMetrics();
+}
+function updateMWRA(v){
+  S.mwraFlow=+v;
+  const mgd=(v/100*0.8).toFixed(2);
+  document.getElementById('mwra-fv').textContent=mgd+' MGD';
+  document.getElementById('mwra-rpm').textContent=v>0?Math.round(v*14.5)+' RPM':'—';
+  document.getElementById('mwra-rpm').style.color=v>0?'var(--amber)':'var(--muted)';
+  calcMetrics();
+}
+function toggleBoost(){
+  S.boostOn=!S.boostOn;
+  document.getElementById('boost-tog').className='tog '+(S.boostOn?'on':'off');
+  document.getElementById('boost-rpm').textContent=S.boostOn?'1450 RPM':'—';
+  document.getElementById('boost-rpm').style.color=S.boostOn?'var(--amber)':'var(--muted)';
+  addAlert('info',`St. Mary's Booster ${S.boostOn?'STARTED':'STOPPED'}`);
+}
+
+// ── AI ──
+function toggleAI(){
+  S.aiOn=!S.aiOn;
+  const btn=document.getElementById('aibtn');
+  btn.className='aibtn '+(S.aiOn?'en':'dis');
+  btn.textContent=S.aiOn?'◈   AI AUTOFILL: ENABLED':'◈   AI AUTOFILL: DISABLED';
+  document.getElementById('aireasoning').style.opacity=S.aiOn?'1':'0.4';
+  document.getElementById('ai-dot').className='dot '+(S.aiOn?'dg':'da');
+  document.getElementById('ai-hd').textContent=S.aiOn?'AI AUTOFILL ON':'AI AUTOFILL OFF';
+  document.getElementById('ai-hd').style.color=S.aiOn?'var(--teal)':'var(--muted)';
+  addAlert(S.aiOn?'info':'warn',`AI Auto-Fill ${S.aiOn?'ENABLED — overnight schedule active':'DISABLED — manual mode'}`);
+}
+
+// ── SCENARIOS ──
+const SCENS={
+  normal:{bh:78,dr:64,demand:3.24,psi:{n:72,c:68,s:61,se:58,e:45},pumps:[{on:true,pct:85},{on:true,pct:80},{on:true,pct:68}],mwra:false,msg:'System reset to normal baseline operations',type:'info',ov:null},
+  peak:{bh:52,dr:38,demand:5.2,psi:{n:58,c:44,s:31,se:35,e:28},pumps:[{on:true,pct:100},{on:true,pct:100},{on:true,pct:100}],mwra:true,msg:'⚡ MORNING PEAK: Zone pressure below 40 PSI — MWRA backup auto-activated',type:'warn',ov:{cx:270,cy:168,r:80,col:'amber'}},
+  leak:{bh:44,dr:51,demand:3.24,psi:{n:72,c:52,s:27,se:38,e:44},pumps:[{on:true,pct:85},{on:true,pct:80},{on:true,pct:68}],mwra:false,msg:'💧 PIPE LEAK: 18% flow loss detected · South zone critical · Isolate V-22',type:'crit',ov:{cx:190,cy:210,r:70,col:'red'}},
+  fire:{bh:41,dr:22,demand:7.1,psi:{n:61,c:55,s:41,se:19,e:15},pumps:[{on:true,pct:100},{on:true,pct:100},{on:true,pct:100}],mwra:true,msg:'🔥 FIRE EVENT: 1,500 GPM hydrant draw · SE zone critical · Emergency interconnect opened',type:'crit',ov:{cx:510,cy:195,r:85,col:'red'}},
+  heat:{bh:60,dr:46,demand:5.5,psi:{n:64,c:58,s:48,se:44,e:38},pumps:[{on:true,pct:100},{on:true,pct:100},{on:true,pct:95}],mwra:true,msg:'☀️ HEAT WAVE: +60% residential demand · MWRA backup active · Conservation alert issued',type:'warn',ov:{cx:320,cy:130,r:120,col:'amber'}},
+  power:{bh:78,dr:64,demand:3.24,psi:{n:72,c:60,s:51,se:48,e:41},pumps:[{on:true,pct:85},{on:false,pct:0},{on:true,pct:100}],mwra:false,msg:'⚠️ WELL #2 MOTOR FAULT: Offline — Well #3 ramped to 100% · Output −1.3 MGD',type:'crit',ov:{cx:55,cy:46,r:42,col:'amber'}},
+};
+function doScen(key){
+  S.scen=key;
+  const sc=SCENS[key];
+  S.bh=sc.bh; S.dr=sc.dr; S.demand=sc.demand;
+  Object.assign(S.psi,sc.psi);
+  sc.pumps.forEach((p,i)=>{S.pumps[i].on=p.on; S.pumps[i].pct=p.pct; calcMGD(i);});
+  // MWRA
+  if(sc.mwra&&!S.mwraOn){ S.mwraOn=true; document.getElementById('mwra-tog').className='tog on'; const sw=document.getElementById('mwra-sw'); sw.style.opacity='1'; sw.style.pointerEvents='all'; S.mwraFlow=60; document.getElementById('mwra-sl').value=60; updateMWRA(60); }
+  if(!sc.mwra&&S.mwraOn){ S.mwraOn=false; document.getElementById('mwra-tog').className='tog off'; const sw=document.getElementById('mwra-sw'); sw.style.opacity='0.3'; sw.style.pointerEvents='none'; S.mwraFlow=0; document.getElementById('mwra-sl').value=0; updateMWRA(0); }
+  renderPumps(); renderValves(); updateTankViz(); calcMetrics(); updatePSI(); drawGauges();
+  // Overlay
+  const ov=document.getElementById('scov');
+  if(sc.ov){
+    const cmap={amber:'#ffb300',red:'#ff3a3a',teal:'#00e5cc'};
+    const gmap={amber:'rg-amber',red:'rg-red',teal:'rg-teal'};
+    const o=sc.ov; const col=cmap[o.col]; const g=gmap[o.col];
+    ov.innerHTML=`<circle cx="${o.cx}" cy="${o.cy}" r="${o.r}" fill="url(#${g})" opacity=".7"><animate attributeName="r" values="${o.r};${o.r+14};${o.r}" dur="2.2s" repeatCount="indefinite"/><animate attributeName="opacity" values=".7;.25;.7" dur="2.2s" repeatCount="indefinite"/></circle><circle cx="${o.cx}" cy="${o.cy}" r="${o.r}" fill="none" stroke="${col}" stroke-width="1.5" stroke-dasharray="5,3" opacity=".8"><animateTransform attributeName="transform" type="rotate" from="0 ${o.cx} ${o.cy}" to="360 ${o.cx} ${o.cy}" dur="7s" repeatCount="indefinite"/></circle>`;
+  } else ov.innerHTML='';
+  // Highlight button
+  document.querySelectorAll('.scenbtn').forEach(b=>b.classList.remove('act'));
+  document.getElementById('sb-'+key)?.classList.add('act');
+  addAlert(sc.type, sc.msg);
+  drawDemand(); drawPressure();
+}
+
+// ── TANK VIZ ──
+function updateTankViz(){
+  // Always work with rounded integers
+  S.bh = Math.round(Math.min(100, Math.max(5, S.bh)));
+  S.dr = Math.round(Math.min(100, Math.max(5, S.dr)));
+  const bhC=S.bh>60?'var(--teal)':S.bh>35?'var(--amber)':'var(--red)';
+  const drC=S.dr>60?'var(--teal)':S.dr>35?'var(--amber)':'var(--red)';
+  setSVGTank('bh-fill',S.bh); setSVGTank('dr-fill',S.dr);
+  document.getElementById('bh-pct').textContent=S.bh+'%'; document.getElementById('bh-pct').style.color=bhC;
+  document.getElementById('dr-pct').textContent=S.dr+'%'; document.getElementById('dr-pct').style.color=drC;
+  document.getElementById('bh-gal').textContent=(S.bh/100*2.5).toFixed(2)+' MG';
+  document.getElementById('dr-gal').textContent=(S.dr/100*1.5).toFixed(2)+' MG';
+  const cPct=Math.round((S.bh*2.5+S.dr*1.5)/4*100);
+  const cMG=(S.bh/100*2.5+S.dr/100*1.5).toFixed(2);
+  document.getElementById('comb-pct').textContent=`${cPct}% · ${cMG} MG`;
+  document.getElementById('comb-bar').style.width=cPct+'%';
+  // Map fills
+  const bhmf=document.getElementById('bh-mf'); bhmf.setAttribute('height',(S.bh/100*20).toFixed(1)); bhmf.setAttribute('y',(-17+(20*(1-S.bh/100))).toFixed(1));
+  const drmf=document.getElementById('dr-mf'); drmf.setAttribute('height',(S.dr/100*26).toFixed(1)); drmf.setAttribute('y',(-19+(26*(1-S.dr/100))).toFixed(1));
+  document.getElementById('bh-mp').textContent=S.bh+'%';
+  document.getElementById('dr-mp').textContent=S.dr+'%';
+}
+function setSVGTank(id,pct){
+  const el=document.getElementById(id); const h=80,top=8;
+  const fh=h*(pct/100);
+  el.setAttribute('y',top+h-fh); el.setAttribute('height',fh);
+  el.setAttribute('fill',pct>60?'url(#wg)':pct>35?'url(#ww)':'url(#wc)');
+}
+
+// ── METRICS ──
+function calcMetrics(){
+  const wt=S.pumps.reduce((a,p)=>a+p.mgd,0);
+  const mwraMGD=S.mwraOn?(S.mwraFlow/100*0.8):0;
+  document.getElementById('m-demand').textContent=S.demand.toFixed(2);
+  document.getElementById('m-out').textContent=(wt+mwraMGD).toFixed(2);
+  const avgPSI=Math.round(Object.values(S.psi).reduce((a,b)=>a+b,0)/5);
+  const psiEl=document.getElementById('m-psi');
+  psiEl.textContent=avgPSI;
+  psiEl.style.color=avgPSI>=60?'var(--green)':avgPSI>=40?'var(--amber)':'var(--red)';
+  document.getElementById('wf-val').textContent=wt.toFixed(1);
+  // Alert header
+  const crit=Object.values(S.psi).filter(v=>v<40).length;
+  const ad=document.getElementById('alert-dot'), ah=document.getElementById('alert-hd');
+  if(crit>0){ad.className='dot dr2'; ah.textContent=crit+' CRITICAL'; ah.style.color='var(--red)';}
+  else{ad.className='dot dg'; ah.textContent='0 ALERTS'; ah.style.color='var(--green)';}
+}
+
+// ── PSI LABELS + TREND ARROWS ──
+const prevPSI = {n:72, c:68, s:61, se:58, e:45};
+const psiMap = [
+  {key:'n',  pid:'p-n',  tid:'tr-n'},
+  {key:'c',  pid:'p-ne', tid:'tr-ne'},
+  {key:'s',  pid:'p-s',  tid:'tr-s'},
+  {key:'se', pid:'p-se', tid:'tr-se'},
+  {key:'e',  pid:'p-e',  tid:'tr-e'},
+];
+function updatePSI(){
+  const pc=(v)=>v>=60?'#00e5cc':v>=40?'#ffb300':'#ff3a3a';
+  psiMap.forEach(({key, pid, tid})=>{
+    const cur = S.psi[key];
+    const prev = prevPSI[key];
+    const delta = cur - prev;
+    const col = pc(cur);
+    // PSI value
+    const el = document.getElementById(pid);
+    el.textContent = Math.round(cur) + ' PSI';
+    el.style.fill = col;
+    // Trend arrow
+    const tr = document.getElementById(tid);
+    if(Math.abs(delta) < 1){
+      tr.textContent = '→';
+      tr.style.fill = '#3a6080'; // neutral muted
+    } else if(delta > 0){
+      tr.textContent = '↑';
+      tr.style.fill = cur >= 60 ? '#39ff14' : '#ffb300';
+    } else {
+      tr.textContent = '↓';
+      tr.style.fill = cur < 40 ? '#ff3a3a' : cur < 60 ? '#ffb300' : '#4a9080';
+    }
+    prevPSI[key] = cur;
+  });
+  const gc=(v)=>v>=60?'var(--green)':v>=40?'var(--amber)':'var(--red)';
+  ['n','c','s'].forEach((k,i)=>{
+    const vals=[S.psi.n,S.psi.c,S.psi.s];
+    document.getElementById('gv-'+k).textContent=vals[i];
+    document.getElementById('gv-'+k).style.color=gc(vals[i]);
+  });
+}
+
+// ── ARC GAUGES ──
+function drawGauge(cid,val){
+  const cv=document.getElementById(cid); if(!cv)return;
+  const ctx=cv.getContext('2d'); const W=68,H=44,cx=34,cy=41,r=28;
+  ctx.clearRect(0,0,W,H);
+  const sa=Math.PI, ea=2*Math.PI, va=sa+(val/120)*(ea-sa);
+  ctx.beginPath(); ctx.arc(cx,cy,r,sa,ea); ctx.strokeStyle='#0f2540'; ctx.lineWidth=5; ctx.stroke();
+  const col=val>=60?'#39ff14':val>=40?'#ffb300':'#ff3a3a';
+  const g=ctx.createLinearGradient(cx-r,0,cx+r,0);
+  g.addColorStop(0,'#005548'); g.addColorStop(1,col);
+  ctx.beginPath(); ctx.arc(cx,cy,r,sa,va); ctx.strokeStyle=g; ctx.lineWidth=5; ctx.lineCap='round'; ctx.stroke();
+  // 20 PSI min line
+  const ma=sa+(20/120)*(ea-sa);
+  ctx.beginPath(); ctx.moveTo(cx+(r-8)*Math.cos(ma),cy+(r-8)*Math.sin(ma)); ctx.lineTo(cx+(r+2)*Math.cos(ma),cy+(r+2)*Math.sin(ma));
+  ctx.strokeStyle='rgba(255,58,58,.7)'; ctx.lineWidth=1.5; ctx.stroke();
+}
+function drawGauges(){ drawGauge('gc-n',S.psi.n); drawGauge('gc-c',S.psi.c); drawGauge('gc-s',S.psi.s); }
+
+// ── MAP MODE ──
+function setMode(el,mode){
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active')); el.classList.add('active');
+  document.getElementById('pzones').style.opacity=mode==='pressure'?'.5':'.15';
+  document.getElementById('snodes').style.opacity=mode!=='age'?'1':'.4';
+}
+
+// ── ALERTS ──
+function addAlert(type,msg){
+  const now=new Date();
+  S.alerts.unshift({type,msg,time:now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})});
+  if(S.alerts.length>15) S.alerts.pop();
+  document.getElementById('alert-list').innerHTML=S.alerts.map(a=>`
+    <div class="aitem ${a.type}"><span class="atime">${a.time}</span><span class="amsg">${a.msg}</span></div>`).join('');
+}
+
+// ── FLOW PARTICLES ──
+const parts=[];
+const pathDefs=[
+  {pts:[[55,46],[110,46],[110,100],[190,100]],col:'#39ff14'},
+  {pts:[[110,100],[270,100],[273,90]],col:'#00e5cc'},
+  {pts:[[273,100],[430,100],[433,162]],col:'#00e5cc'},
+  {pts:[[110,180],[270,180],[350,180]],col:'#004488'},
+  {pts:[[430,180],[510,180]],col:'#004488'},
+];
+function tick(){requestAnimationFrame(tick);
+  if(parts.length<10) parts.push({path:pathDefs[Math.floor(Math.random()*pathDefs.length)].pts,col:pathDefs[Math.floor(Math.random()*pathDefs.length)].col,t:0,spd:0.006+Math.random()*0.009});
+  const circles=[];
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i]; p.t+=p.spd; if(p.t>=1){parts.splice(i,1);continue;}
+    const pl=p.path.length-1; const seg=p.t*pl; const si=Math.floor(seg); const st=seg-si;
+    if(si>=pl) continue;
+    const a=p.path[si],b=p.path[Math.min(si+1,pl)];
+    const x=a[0]+(b[0]-a[0])*st, y=a[1]+(b[1]-a[1])*st;
+    circles.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${p.col}" opacity="${(1-p.t).toFixed(2)}"/>`);
+  }
+  document.getElementById('fparts').innerHTML=circles.join('');
+}
+
+// ── SIMULATION ──
+let simT=0;
+function simulate(){
+  simT++;
+  if(simT%30===0){
+    const wOut=S.pumps.reduce((a,p)=>a+p.mgd,0)+(S.mwraOn?S.mwraFlow/100*0.8:0);
+    const net=wOut-S.demand;
+    const chg=(net/1440/4)*100;
+    S.bh=Math.min(100,Math.max(5,S.bh+chg*0.6));
+    S.dr=Math.min(100,Math.max(5,S.dr+chg*0.4));
+    updateTankViz();
+  }
+  if(simT%12===0){
+    Object.keys(S.psi).forEach(k=>{ S.psi[k]+=(Math.random()-.5)*1.8; S.psi[k]=Math.round(Math.max(15,Math.min(115,S.psi[k]))); });
+    updatePSI(); drawGauges(); calcMetrics();
+  }
+}
+setInterval(simulate,100);
+
+// ── CHARTS ──
+function drawDemand(){
+  const cv=document.getElementById('dc'); if(!cv)return;
+  cv.width=cv.offsetWidth; cv.height=cv.offsetHeight;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+
+  let demandScale = S.demand/3.24;
+  if(appMode==='live' && usgsData.status==='ok' && usgsData.cfs!==null){
+    const flowFactor = Math.max(0.9, Math.min(1.15, 1 + (100-Math.min(usgsData.cfs,200))/500));
+    demandScale *= flowFactor;
+  }
+  const base=[1.4,1.1,0.9,0.8,0.8,1.2,2.2,3.8,4.2,3.9,3.5,3.2,3.0,2.9,3.1,3.3,3.5,3.8,3.6,3.0,2.8,2.5,2.0,1.7];
+  const fcst=base.map(v=>+(v*demandScale).toFixed(2));
+  const max=7; const pad={t:14,b:28,l:36,r:12};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const FONT='11px "Share Tech Mono",monospace';
+  const FONT_SM='10px "Share Tech Mono",monospace';
+
+  // Background grid
+  [0,1,2,3,4,5,6,7].forEach(v=>{
+    const y=pad.t+cH*(1-v/max);
+    ctx.strokeStyle = v===0 ? '#1a3a5c' : '#0f2540';
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+    // Y-axis labels — bright and large
+    ctx.fillStyle='#5a88b0';
+    ctx.font=FONT_SM; ctx.textAlign='right';
+    ctx.fillText(v, pad.l-6, y+4);
+  });
+  // Y-axis title
+  ctx.save(); ctx.translate(11, pad.t+cH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='#4a7090'; ctx.font=FONT_SM; ctx.textAlign='center';
+  ctx.fillText('MGD', 0, 0); ctx.restore();
+
+  // Forecast area fill
+  const fg=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+  fg.addColorStop(0,'rgba(0,229,204,.18)'); fg.addColorStop(1,'rgba(0,229,204,.02)');
+  ctx.beginPath(); fcst.forEach((v,i)=>{ const x=pad.l+i*(cW/23),y=pad.t+cH*(1-v/max); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.lineTo(pad.l+23*(cW/23),H-pad.b); ctx.lineTo(pad.l,H-pad.b); ctx.closePath(); ctx.fillStyle=fg; ctx.fill();
+
+  // Forecast dashed line
+  ctx.beginPath(); ctx.strokeStyle='rgba(0,229,204,.55)'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+  fcst.forEach((v,i)=>{ const x=pad.l+i*(cW/23),y=pad.t+cH*(1-v/max); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Actual line (solid, brighter)
+  const nowH=new Date().getHours()+(new Date().getMinutes()/60);
+  const actual=fcst.slice(0,Math.min(Math.ceil(nowH)+1,24));
+  const actualColor = appMode==='live' && usgsData.status==='ok' ? '#39ff14' : '#00e5cc';
+  ctx.beginPath(); ctx.strokeStyle=actualColor; ctx.lineWidth=2.5;
+  actual.forEach((v,i)=>{ const x=pad.l+i*(cW/23),y=pad.t+cH*(1-v/max); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.stroke();
+
+  // NOW vertical marker
+  const nx=pad.l+nowH*(cW/23);
+  ctx.strokeStyle='rgba(255,179,0,.7)'; ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(nx,pad.t); ctx.lineTo(nx,H-pad.b); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#ffb300'; ctx.font=FONT_SM; ctx.textAlign='center';
+  ctx.fillText('NOW',nx,pad.t-3);
+
+  // X-axis hour labels
+  ctx.fillStyle='#5a88b0'; ctx.font=FONT_SM; ctx.textAlign='center';
+  [0,3,6,9,12,15,18,21,23].forEach(h=>{
+    const x=pad.l+h*(cW/23);
+    ctx.fillText(h+'h', x, H-8);
+    // tick
+    ctx.strokeStyle='#1a3a5c'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,H-pad.b); ctx.lineTo(x,H-pad.b+4); ctx.stroke();
+  });
+
+  // Mode badge
+  if(appMode==='live' && usgsData.status==='ok' && usgsData.cfs!==null){
+    ctx.fillStyle='rgba(57,255,20,.18)'; ctx.strokeStyle='rgba(57,255,20,.5)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.roundRect(pad.l+4,pad.t+4,100,16,3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#39ff14'; ctx.font=FONT_SM; ctx.textAlign='left';
+    ctx.fillText(`⬤ USGS ${usgsData.cfs.toFixed(0)} cfs LIVE`, pad.l+10, pad.t+14);
+  } else if(appMode==='sim'){
+    ctx.fillStyle='rgba(255,179,0,.15)'; ctx.strokeStyle='rgba(255,179,0,.4)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.roundRect(pad.l+4,pad.t+4,80,16,3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#ffb300'; ctx.font=FONT_SM; ctx.textAlign='left';
+    ctx.fillText('⬡ SIMULATED', pad.l+10, pad.t+14);
+  }
+
+  // Legend
+  ctx.font=FONT_SM; ctx.textAlign='left';
+  ctx.strokeStyle=actualColor; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(W-90,pad.t+8); ctx.lineTo(W-74,pad.t+8); ctx.stroke();
+  ctx.fillStyle='#7aaac8'; ctx.fillText('Actual',W-72,pad.t+12);
+  ctx.strokeStyle='rgba(0,229,204,.55)'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(W-90,pad.t+22); ctx.lineTo(W-74,pad.t+22); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillText('Forecast',W-72,pad.t+26);
+}
+
+function drawPressure(){
+  const cv=document.getElementById('pc'); if(!cv)return;
+  cv.width=cv.offsetWidth; cv.height=cv.offsetHeight;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+
+  const avg=Math.round(Object.values(S.psi).reduce((a,b)=>a+b,0)/5);
+  const pts=72; const data=[]; let prev=avg;
+  for(let i=0;i<pts;i++){ const d=Math.round(prev+(Math.random()-.5)*3); prev=Math.max(15,Math.min(115,d)); data.push(prev); }
+  const max=120; const pad={t:14,b:28,l:36,r:12};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const FONT='11px "Share Tech Mono",monospace';
+  const FONT_SM='10px "Share Tech Mono",monospace';
+
+  // Danger zone fill (below 40 PSI)
+  const danger_y = pad.t+cH*(1-40/max);
+  ctx.fillStyle='rgba(255,58,58,.06)';
+  ctx.fillRect(pad.l, danger_y, cW, H-pad.b-danger_y);
+
+  // Grid lines
+  [0,20,40,60,80,100,120].forEach(v=>{
+    const y=pad.t+cH*(1-v/max);
+    const is40 = v===40;
+    ctx.strokeStyle = is40 ? 'rgba(255,58,58,.5)' : '#0f2540';
+    ctx.lineWidth = is40 ? 1.5 : 1;
+    ctx.setLineDash(is40 ? [4,3] : []);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+    ctx.setLineDash([]);
+    // Y labels — bright
+    ctx.fillStyle = is40 ? '#ff6666' : '#5a88b0';
+    ctx.font=FONT_SM; ctx.textAlign='right';
+    ctx.fillText(v, pad.l-6, y+4);
+  });
+
+  // MassDEP MIN label — clearly visible
+  ctx.fillStyle='#ff6666'; ctx.font=FONT_SM; ctx.textAlign='right';
+  ctx.fillText('MassDEP MIN 20 PSI', W-pad.r-2, danger_y+cH*(1-20/40)*0+pad.t+cH*(1-20/max)-pad.t+danger_y-4);
+  // Actually place it simply:
+  const min20y = pad.t+cH*(1-20/max);
+  ctx.strokeStyle='rgba(255,58,58,.35)'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(pad.l,min20y); ctx.lineTo(W-pad.r,min20y); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,100,100,.8)'; ctx.font=FONT_SM; ctx.textAlign='right';
+  ctx.fillText('MIN 20', pad.l-2, min20y+4);
+
+  // 40 PSI threshold label
+  ctx.fillStyle='#ff7777'; ctx.font=FONT_SM; ctx.textAlign='left';
+  ctx.fillText('⚠ 40 PSI THRESHOLD', pad.l+4, danger_y-4);
+
+  // Y-axis title
+  ctx.save(); ctx.translate(11, pad.t+cH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='#4a7090'; ctx.font=FONT_SM; ctx.textAlign='center';
+  ctx.fillText('PSI', 0, 0); ctx.restore();
+
+  // Gradient area fill
+  const g=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+  g.addColorStop(0,'rgba(57,255,20,.22)'); g.addColorStop(0.5,'rgba(255,179,0,.1)'); g.addColorStop(1,'rgba(255,58,58,.03)');
+  ctx.beginPath(); data.forEach((v,i)=>{ const x=pad.l+i*(cW/(pts-1)),y=pad.t+cH*(1-v/max); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.lineTo(W-pad.r,H-pad.b); ctx.lineTo(pad.l,H-pad.b); ctx.closePath(); ctx.fillStyle=g; ctx.fill();
+
+  // Pressure line — bright gradient
+  const lg=ctx.createLinearGradient(pad.l,0,W-pad.r,0);
+  lg.addColorStop(0,'#39ff14'); lg.addColorStop(0.5,'#ffb300'); lg.addColorStop(1,'#00e5cc');
+  ctx.beginPath(); ctx.strokeStyle=lg; ctx.lineWidth=2.5;
+  data.forEach((v,i)=>{ const x=pad.l+i*(cW/(pts-1)),y=pad.t+cH*(1-v/max); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.stroke();
+
+  // Current avg dot
+  const lastX=W-pad.r, lastY=pad.t+cH*(1-data[pts-1]/max);
+  const dotColor=data[pts-1]>=60?'#39ff14':data[pts-1]>=40?'#ffb300':'#ff3a3a';
+  ctx.beginPath(); ctx.arc(lastX,lastY,4,0,Math.PI*2); ctx.fillStyle=dotColor; ctx.fill();
+  ctx.fillStyle=dotColor; ctx.font=FONT; ctx.textAlign='right';
+  ctx.fillText(data[pts-1]+' PSI', lastX-8, lastY-6);
+
+  // X labels
+  ctx.fillStyle='#5a88b0'; ctx.font=FONT_SM; ctx.textAlign='center';
+  ctx.fillText('−6h', pad.l, H-8);
+  ctx.fillText('−3h', pad.l+cW/2, H-8);
+  ctx.fillText('NOW', W-pad.r, H-8);
+  // tick marks
+  [0, cW/2, cW].forEach(x=>{
+    ctx.strokeStyle='#1a3a5c'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.l+x,H-pad.b); ctx.lineTo(pad.l+x,H-pad.b+4); ctx.stroke();
+  });
+}
+
+// ── LIVE / SIM MODE ──
+let appMode = 'live'; // 'live' | 'sim'
+function setMode(m){
+  appMode = m;
+  document.getElementById('btn-live').className = 'mode-btn live-btn' + (m==='live'?' active':'');
+  document.getElementById('btn-sim').className  = 'mode-btn sim-btn'  + (m==='sim' ?' active':'');
+  const pill = document.getElementById('mode-pill');
+  const pillTxt = document.getElementById('mode-pill-txt');
+  if(m==='live'){
+    pill.className='live-pill live'; pillTxt.textContent='USGS · LIVE';
+    document.getElementById('usgs-panel').style.opacity='1';
+    document.getElementById('usgs-panel').style.pointerEvents='all';
+    fetchUSGS();
+    addAlert('info','Switched to LIVE DATA mode — USGS Charles River feed active');
+  } else {
+    pill.className='live-pill sim'; pillTxt.textContent='SIMULATED';
+    document.getElementById('usgs-panel').style.opacity='0.4';
+    document.getElementById('usgs-panel').style.pointerEvents='none';
+    addAlert('info','Switched to SIMULATED mode — scenario controls active');
+  }
+  drawDemand(); drawPressure();
+}
+
+// ── USGS DATA FETCH ──
+// USGS site 01104200: Charles River at Wellesley, MA
+// parameterCd 00060 = discharge (cfs), 00065 = gage height (ft)
+const USGS_URL = 'https://waterservices.usgs.gov/nwis/iv/?sites=01104200&parameterCd=00060,00065&format=json&siteStatus=all';
+
+let usgsData = { cfs: null, ft: null, time: null, status: 'loading' };
+
+async function fetchUSGS(){
+  try {
+    document.getElementById('usgs-content').innerHTML = `<div class="usgs-cell" style="grid-column:1/-1"><div class="uc-label">STATUS</div><div class="uc-val" style="font-size:11px;color:var(--muted)">Contacting USGS…</div></div>`;
+    const resp = await fetch(USGS_URL);
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const data = await resp.json();
+    const series = data.value.timeSeries;
+    let cfs=null, ft=null, dt=null;
+    series.forEach(ts=>{
+      const code = ts.variable.variableCode[0].value;
+      const vals = ts.values[0].value;
+      if(!vals.length) return;
+      const last = vals[vals.length-1];
+      if(code==='00060'){ cfs=parseFloat(last.value); dt=last.dateTime; }
+      if(code==='00065'){ ft=parseFloat(last.value); }
+    });
+    usgsData = { cfs, ft, time: dt, status: 'ok' };
+    renderUSGS();
+    applyLiveToSystem();
+    addAlert('info', `USGS feed updated: Charles River ${cfs!==null?cfs.toFixed(1)+' cfs':'—'} at Wellesley`);
+  } catch(e){
+    usgsData = { cfs:null, ft:null, time:null, status:'error', err:e.message };
+    renderUSGSError(e.message);
+  }
+}
+
+function renderUSGS(){
+  const {cfs, ft, time} = usgsData;
+  // Flow classification
+  const cls = cfs===null?'unknown': cfs<30?'drought': cfs<80?'low': cfs<200?'normal': cfs<400?'high':'flood';
+  const clsColor = {drought:'var(--red)',low:'var(--amber)',normal:'var(--green)',high:'var(--teal)',flood:'var(--blue)',unknown:'var(--muted)'}[cls];
+  const clsLabel = {drought:'DROUGHT STRESS',low:'BELOW NORMAL',normal:'NORMAL FLOW',high:'ABOVE NORMAL',flood:'HIGH FLOW',unknown:'NO DATA'}[cls];
+  // MGD context: Needham draws up to 4 MGD; 1 cfs ≈ 0.646 MGD
+  const mgdAvail = cfs!==null ? (cfs*0.646).toFixed(1) : '—';
+  // Wellfield health: normal capacity 4 MGD; in drought the aquifer recharge is slower
+  const wellPct = cfs===null?85: Math.min(100, Math.max(30, 50 + (cfs/200)*50));
+  const wellColor = wellPct>70?'var(--green)':wellPct>50?'var(--amber)':'var(--red)';
+  // Format time
+  const dtStr = time ? new Date(time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' · ' + new Date(time).toLocaleDateString('en-US',{month:'short',day:'2-digit'}) : '—';
+
+  document.getElementById('usgs-content').innerHTML = `
+    <div class="usgs-grid">
+      <div class="usgs-cell live-cell">
+        <div class="uc-label">DISCHARGE</div>
+        <div class="uc-val" style="color:${clsColor}">${cfs!==null?cfs.toFixed(1):'—'}</div>
+        <div class="uc-sub">CFS · WELLESLEY GAGE</div>
+      </div>
+      <div class="usgs-cell live-cell">
+        <div class="uc-label">GAGE HEIGHT</div>
+        <div class="uc-val" style="color:var(--teal)">${ft!==null?ft.toFixed(2):'—'}</div>
+        <div class="uc-sub">FEET · ABOVE DATUM</div>
+      </div>
+    </div>
+    <div class="usgs-bar-wrap">
+      <div class="usgs-bar-label">
+        <span>FLOW CONDITION</span>
+        <span style="color:${clsColor}">${clsLabel}</span>
+      </div>
+      <div class="bartrack"><div class="barfill" style="width:${Math.min(100,cfs!==null?(cfs/400*100):50)}%;background:linear-gradient(90deg,${clsColor},${clsColor}88);"></div></div>
+    </div>
+    <div class="usgs-impact">
+      <div class="usgs-impact-row"><span style="color:var(--muted)">River → MGD equiv.</span><span style="color:var(--teal)">${mgdAvail} MGD</span></div>
+      <div class="usgs-impact-row"><span style="color:var(--muted)">Wellfield recharge</span><span style="color:${wellColor}">${wellPct.toFixed(0)}% capacity</span></div>
+      <div class="usgs-impact-row"><span style="color:var(--muted)">MWRA risk flag</span><span style="color:${cls==='drought'||cls==='low'?'var(--amber)':'var(--green)'}">${cls==='drought'?'HIGH':cls==='low'?'MODERATE':'LOW'}</span></div>
+    </div>`;
+  document.getElementById('usgs-updated').textContent = 'USGS LAST UPDATE: ' + dtStr + ' · AUTO-REFRESH 15 MIN';
+}
+
+function renderUSGSError(msg){
+  document.getElementById('usgs-content').innerHTML = `
+    <div class="usgs-err">⚠ USGS FEED UNAVAILABLE<br><span style="color:var(--muted);font-size:6px;">${msg||'Network error'} — showing simulated data</span></div>
+    <div class="usgs-impact" style="margin-top:6px;">
+      <div class="usgs-impact-row"><span style="color:var(--muted)">Discharge (est.)</span><span style="color:var(--amber)">~95 cfs (simulated)</span></div>
+      <div class="usgs-impact-row"><span style="color:var(--muted)">Wellfield recharge</span><span style="color:var(--green)">85% (estimated)</span></div>
+      <div class="usgs-impact-row"><span style="color:var(--muted)">MWRA risk flag</span><span style="color:var(--green)">LOW (estimated)</span></div>
+    </div>`;
+  document.getElementById('usgs-updated').textContent = 'USGS FEED OFFLINE — CORS PROXY NEEDED FOR BROWSER · CONTACT DPW FOR DIRECT FEED';
+}
+
+// Apply USGS data to system state when in live mode
+function applyLiveToSystem(){
+  if(appMode!=='live' || usgsData.status!=='ok' || usgsData.cfs===null) return;
+  const cfs = usgsData.cfs;
+  // In drought (<30 cfs), wellfield stressed — reduce max capacity
+  const wellScale = Math.min(1.0, Math.max(0.55, cfs/150));
+  // Adjust well outputs proportionally
+  S.pumps.forEach((p,i)=>{
+    if(p.on){
+      const caps=[1.38,1.30,0.74];
+      p.mgd = +(caps[i]*(p.pct/100)*wellScale).toFixed(2);
+    }
+  });
+  // In high flow (>300 cfs), aquifer recharge is excellent — tanks fill faster
+  if(cfs > 300) {
+    S.bh = Math.min(100, S.bh + 2);
+    S.dr = Math.min(100, S.dr + 1.5);
+  } else if(cfs < 30) {
+    // Drought: flag MWRA risk
+    if(!S.mwraOn){
+      addAlert('warn','⚠ USGS: Low river flow — consider activating MWRA backup as precaution');
+    }
+  }
+  renderPumps(); updateTankViz(); calcMetrics();
+}
+
+// Auto-refresh USGS every 15 min
+setInterval(()=>{ if(appMode==='live') fetchUSGS(); }, 15*60*1000);
+
+// ── INIT ──
+window.addEventListener('load',()=>{
+  renderPumps(); renderValves(); updateTankViz(); calcMetrics(); updatePSI(); drawGauges();
+  setTimeout(()=>{ drawDemand(); drawPressure(); },120);
+  addAlert('info','Needham DPW SCADA v4.2 initialized — all systems online');
+  addAlert('info','AI Auto-Fill schedule computed — overnight cycle 22:00–06:00');
+  addAlert('info','Storage: Birds Hill 78% · Dunster Rd 64% — nominal range');
+  // Kick off live USGS fetch
+  fetchUSGS();
+  tick();
+});
+window.addEventListener('resize',()=>{ drawDemand(); drawPressure(); drawGauges(); });
+</script>
+</body>
+</html>
